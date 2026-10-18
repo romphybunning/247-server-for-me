@@ -119,15 +119,14 @@ function createBot() {
     config['bot-account'].password ||
     undefined;
 
-  const configuredVersion = config.server.version?.trim();
-  const version = configuredVersion || false;
+  // Explicitly request Minecraft 26.3.
+  const version = '26.3';
 
-  console.log(
-    `[Bot] Connecting to ${config.server.ip}:${config.server.port}`
-  );
+  console.log('--------------------------------------');
+  console.log(`[Bot] Connecting to ${config.server.ip}:${config.server.port}`);
   console.log(`[Bot] Username: ${username}`);
   console.log(`[Bot] Auth mode: ${config['bot-account'].type || 'offline'}`);
-  console.log(`[Bot] Requested version: ${version || 'auto-detect'}`);
+  console.log(`[Bot] Requested version: ${version}`);
 
   try {
     const currentBot = mineflayer.createBot({
@@ -148,7 +147,7 @@ function createBot() {
     });
 
     currentBot.on('login', () => {
-      console.log('[Bot] Login packet accepted; waiting for spawn.');
+      console.log('[Bot] Login accepted; waiting for spawn.');
     });
 
     currentBot.on('spawn', () => {
@@ -156,11 +155,14 @@ function createBot() {
 
       connected = true;
       reconnectAttempts = 0;
-      console.log(`[Bot] SPAWNED successfully. Version: ${currentBot.version}`);
+
+      console.log(
+        `[Bot] SPAWNED successfully. Server version: ${currentBot.version}`
+      );
     });
 
     currentBot.on('kicked', (reason, loggedIn) => {
-      console.error('[Bot] KICKED reason:', JSON.stringify(reason));
+      console.error('[Bot] KICKED:', JSON.stringify(reason));
       console.error('[Bot] Logged in before kick:', loggedIn);
     });
 
@@ -169,7 +171,7 @@ function createBot() {
     });
 
     currentBot.on('end', reason => {
-      console.error('[Bot] END reason:', reason || 'No reason provided');
+      console.error('[Bot] CONNECTION ENDED:', reason || 'No reason provided');
 
       if (bot !== currentBot) return;
 
