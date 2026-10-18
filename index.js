@@ -12,11 +12,7 @@ let bot = null;
 let connected = false;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
-let startedAt = Date.now();
-
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Web] Server listening on port ${PORT}`);
-});
+const startedAt = Date.now();
 
 app.get('/', (req, res) => {
   res.send(`
@@ -41,7 +37,7 @@ app.get('/', (req, res) => {
           border-radius: 12px;
           margin: 15px 0;
         }
-        #status { font-weight: bold; color: #2dd4bf; }
+        #status { font-weight: bold; }
       </style>
     </head>
     <body>
@@ -51,6 +47,7 @@ app.get('/', (req, res) => {
         <p>Server: ${config.server.ip}:${config.server.port}</p>
         <p>Username: ${config['bot-account'].username}</p>
         <p>Uptime: <span id="uptime">Loading...</span></p>
+        <p>Reconnect attempts: <span id="attempts">0</span></p>
       </div>
       <script>
         async function update() {
@@ -60,6 +57,8 @@ app.get('/', (req, res) => {
             document.getElementById('status').textContent = data.status;
             document.getElementById('uptime').textContent =
               Math.floor(data.uptime / 60) + ' minutes';
+            document.getElementById('attempts').textContent =
+              data.reconnectAttempts;
           } catch {
             document.getElementById('status').textContent = 'Unavailable';
           }
@@ -80,8 +79,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('/ping', (req, res) => {
-  res.send('pong');
+app.get('/ping', (req, res) => res.send('pong'));
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Web] Dashboard listening on port ${PORT}`);
 });
 
 function scheduleReconnect() {
@@ -96,7 +97,7 @@ function scheduleReconnect() {
   );
 
   console.log(
-    `[Bot] Reconnecting in ${Math.round(delay / 1000)}s ` +
+    `[Bot] Retrying in ${Math.round(delay / 1000)} seconds ` +
     `(attempt #${reconnectAttempts})`
   );
 
@@ -107,14 +108,6 @@ function scheduleReconnect() {
 }
 
 function createBot() {
-  if (bot) {
-    try {
-      bot.removeAllListeners();
-      bot.end();
-    } catch (_) {}
-    bot = null;
-  }
-
   connected = false;
 
   const username =
@@ -126,18 +119,18 @@ function createBot() {
     config['bot-account'].password ||
     undefined;
 
-  const version =
-    config.server.version &&
-    config.server.version.trim() !== ''
-      ? config.server.version
-      : false;
+  const configuredVersion = config.server.version?.trim();
+  const version = configuredVersion || false;
 
   console.log(
     `[Bot] Connecting to ${config.server.ip}:${config.server.port}`
   );
+  console.log(`[Bot] Username: ${username}`);
+  console.log(`[Bot] Auth mode: ${config['bot-account'].type || 'offline'}`);
+  console.log(`[Bot] Requested version: ${version || 'auto-detect'}`);
 
   try {
-    bot = mineflayer.createBot({
+    const currentBot = mineflayer.createBot({
       host: config.server.ip,
       port: Number(config.server.port),
       username,
@@ -148,60 +141,56 @@ function createBot() {
       checkTimeoutInterval: 600000
     });
 
-    bot.once('login', () => {
-      console.log('[Bot] Login successful; waiting for spawn.');
+    bot = currentBot;
+
+    currentBot.on('connect', () => {
+      console.log('[Bot] TCP connection established.');
     });
 
-    bot.once('spawn', () => {
+    currentBot.on('login', () => {
+      console.log('[Bot] Login packet accepted; waiting for spawn.');
+    });
+
+    currentBot.on('spawn', () => {
+      if (bot !== currentBot) return;
+
       connected = true;
       reconnectAttempts = 0;
-
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-      }
-
-      console.log(`[Bot] Connected! Minecraft version: ${bot.version}`);
+      console.log(`[Bot] SPAWNED successfully. Version: ${currentBot.version}`);
     });
 
-    bot.on('kicked', reason => {
-      console.log('[Bot] Kicked:', JSON.stringify(reason));
+    currentBot.on('kicked', (reason, loggedIn) => {
+      console.error('[Bot] KICKED reason:', JSON.stringify(reason));
+      console.error('[Bot] Logged in before kick:', loggedIn);
     });
 
-    bot.on('error', error => {
-      console.log('[Bot] Error:', error.message);
+    currentBot.on('error', error => {
+      console.error('[Bot] ERROR:', error.stack || error.message || error);
     });
 
-    bot.on('end', reason => {
-      console.log('[Bot] Disconnected:', reason || 'Connection ended');
+    currentBot.on('end', reason => {
+      console.error('[Bot] END reason:', reason || 'No reason provided');
+
+      if (bot !== currentBot) return;
+
       connected = false;
       bot = null;
       scheduleReconnect();
     });
 
   } catch (error) {
-    console.log('[Bot] Failed to start:', error.message);
+    console.error('[Bot] CREATE ERROR:', error.stack || error);
     bot = null;
     scheduleReconnect();
   }
 }
 
 process.on('uncaughtException', error => {
-  console.error('[Fatal]', error.message);
-  connected = false;
-
-  if (bot) {
-    try {
-      bot.end();
-    } catch (_) {}
-    bot = null;
-  }
-
-  scheduleReconnect();
+  console.error('[Fatal]', error.stack || error);
 });
 
 process.on('unhandledRejection', error => {
-  console.error('[Unhandled rejection]', error);
+  console.error('[Unhandled rejection]', error?.stack || error);
 });
 
 console.log('======================================');
