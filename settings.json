@@ -6,7 +6,7 @@
     "type": "offline"
   },
   "server": {
-    "ip": "taoisthekingofthecourt.joinmc.world",
+    "ip": "51.161.208.84:4504",
     "port": 40255,
     "version": "",
     "try-creative": false
