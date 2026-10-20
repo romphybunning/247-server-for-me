@@ -10,7 +10,4 @@
     "@wp2508/minecraft-data": "3.111.6",
     "express": "^4.18.1"
   },
-  "overrides": {
-    "minecraft-data": "npm:@wp2508/minecraft-data@3.111.6"
-  }
-}
+  "over
