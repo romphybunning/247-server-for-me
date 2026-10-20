@@ -15,7 +15,7 @@ let reconnectAttempts = 0;
 const startedAt = Date.now();
 
 // Request an older version and let ViaVersion handle translation.
-const VERSION = '1.21.11';
+const VERSION = '26.3';
 
 app.get('/', (req, res) => {
   res.send(`
