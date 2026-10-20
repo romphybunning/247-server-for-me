@@ -14,6 +14,9 @@ let reconnectTimer = null;
 let reconnectAttempts = 0;
 const startedAt = Date.now();
 
+// Request an older version and let ViaVersion handle translation.
+const VERSION = '1.21.11';
+
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -46,6 +49,7 @@ app.get('/', (req, res) => {
         <p>Status: <span id="status">Loading...</span></p>
         <p>Server: ${config.server.ip}:${config.server.port}</p>
         <p>Username: ${config['bot-account'].username}</p>
+        <p>Protocol version: ${VERSION}</p>
         <p>Uptime: <span id="uptime">Loading...</span></p>
         <p>Reconnect attempts: <span id="attempts">0</span></p>
       </div>
@@ -119,14 +123,11 @@ function createBot() {
     config['bot-account'].password ||
     undefined;
 
-  // Explicitly request Minecraft 26.3.
-  const version = '26.3';
-
   console.log('--------------------------------------');
   console.log(`[Bot] Connecting to ${config.server.ip}:${config.server.port}`);
   console.log(`[Bot] Username: ${username}`);
   console.log(`[Bot] Auth mode: ${config['bot-account'].type || 'offline'}`);
-  console.log(`[Bot] Requested version: ${version}`);
+  console.log(`[Bot] Requested version: ${VERSION}`);
 
   try {
     const currentBot = mineflayer.createBot({
@@ -135,7 +136,7 @@ function createBot() {
       username,
       password,
       auth: config['bot-account'].type || 'offline',
-      version,
+      version: VERSION,
       hideErrors: false,
       checkTimeoutInterval: 600000
     });
@@ -171,7 +172,10 @@ function createBot() {
     });
 
     currentBot.on('end', reason => {
-      console.error('[Bot] CONNECTION ENDED:', reason || 'No reason provided');
+      console.error(
+        '[Bot] CONNECTION ENDED:',
+        reason || 'No reason provided'
+      );
 
       if (bot !== currentBot) return;
 
@@ -200,6 +204,7 @@ console.log(' Minecraft AFK Bot');
 console.log('======================================');
 console.log(`Server: ${config.server.ip}:${config.server.port}`);
 console.log(`Username: ${config['bot-account'].username}`);
+console.log(`Requested version: ${VERSION}`);
 console.log('======================================');
 
 createBot();
